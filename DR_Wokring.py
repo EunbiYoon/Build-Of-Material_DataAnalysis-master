@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 
 ###########################GERP###############################
-gerp=pd.read_excel('C:/Users/RnD Workstation/Documents/NPTGERP/0512/TL/gerp.xlsx')
+gerp=pd.read_excel('C:/Users/RnD Workstation/Documents/NPTGERP/0512/DR/gerp.xlsx')
 # #파일에 따라 추가하기
 # gerp=gerp[gerp['Model'].str.contains('F3')] #total 행 제거
 # gerp.reset_index(drop=True, inplace=True)
@@ -106,10 +106,10 @@ for i in range(len(empty_list)):
         else:
             pass
 
-gerp.to_excel('C:/Users/RnD Workstation/Documents/NPTGERP/0512/TL/gerpresult.xlsx')
+gerp.to_excel('C:/Users/RnD Workstation/Documents/NPTGERP/0512/DR/gerpresult.xlsx')
 
 ###########################NPT###############################
-npt=pd.read_excel('C:/Users/RnD Workstation/Documents/NPTGERP/0512/TL/npt.xlsx')
+npt=pd.read_excel('C:/Users/RnD Workstation/Documents/NPTGERP/0512/DR/npt.xlsx')
 
 # #파일에 따라 추가하기 (Test-1 O, Test-3 X)
 npt=npt.drop([0],axis=0) #total 행 제거
@@ -318,10 +318,11 @@ for i in range(len(empty_list)):
 npt=npt[npt['Supply Type']=='Assembly Pull']
 npt.reset_index(inplace=True,drop=True)
 
-npt.to_excel('C:/Users/RnD Workstation/Documents/NPTGERP/0512/TL/nptresult.xlsx')
+npt.to_excel('C:/Users/RnD Workstation/Documents/NPTGERP/0512/DR/nptresult.xlsx')
 
-################################################################# compare npt and gerp #################################################################
-############ Change Parent Part As T1 (NPT and GERP match) remove TAW ############
+####################### compare npt and gerp #######################
+#Match with GERP parent
+#Change Parent Part As F3 (NPT and GERP match) remove TAW
 f3_parent=gerp.at[0,"Parent Item"]
 for i in range(len(npt)):
     parent_part=npt.at[i,'Parent Part'][:3]
@@ -330,94 +331,326 @@ for i in range(len(npt)):
     else:
         pass
 
-################################################## unique gerp -> priority ##################################################
-unique_gerp=gerp
+#match_list 시작
 match_list=pd.DataFrame()
-unique_match=pd.DataFrame()
+unique_gerp=gerp
+model_name=gerp.at[0,"Parent Item"][:1]
+
+#Screw,Tapping / Screw,Taptite / Duct / Packing / Resin,EPS / Damper 우선 배치 혼돈을 줄수 있음
+for i in range(len(npt)):
+    npt_part=npt.at[i,"Part No"]
+    npt_parent=npt.at[i,"Parent Part"]
+    npt_des=npt.at[i,"Desc."]
+    npt_price=npt.at[i,"Material Cost (LOC)"]
+    npt_qty=npt.at[i,"Unit Qty"]
+    match_number=npt.at[i,"Seq."]
+    if npt_des=="Screw,Tapping": #Screw,tapping 
+        if model_name=='T' or 'F': #Screw,tapping -> DR,DR
+            for j in range(len(unique_gerp)): #duplicate 제외
+                gerp_part=unique_gerp.at[j,"Child Item"]
+                gerp_des=unique_gerp.at[j,"Description"]
+                gerp_price=unique_gerp.at[j,"QPA*Material Cost"]
+                gerp_qty=unique_gerp.at[j,"Qty Per Assembly"]
+                if gerp_des==npt_des and gerp_part==npt_part and gerp_qty==npt_qty: #완전 일치문 (parent는 일치하지 않는 경우가 있어 제외)
+                    if gerp_price==npt_price:
+                        gerp_data=unique_gerp.at[j,"Seq"]
+                        match_list.at[match_number,"gerp_true"]=gerp_data
+                    else:
+                        gerp_data=unique_gerp.at[j,"Seq"]
+                        match_list.at[match_number,"gerp_price"]=gerp_data
+                else:
+                    continue
+            ### HOW TO DROP 
+            used_index=unique_gerp[unique_gerp["Seq"]==gerp_data].index
+            unique_gerp=unique_gerp.drop(used_index,axis=0)
+            unique_gerp.reset_index(drop=True, inplace=True)
+
+        elif model_name=='R': #Screw,tapping -> DR,DR
+            for j in range(len(unique_gerp)): #duplicate 제외
+                gerp_parent=unique_gerp.at[j,"Parent Item"]
+                gerp_part=unique_gerp.at[j,"Child Item"]
+                gerp_des=unique_gerp.at[j,"Description"]
+                gerp_price=unique_gerp.at[j,"QPA*Material Cost"]
+                gerp_qty=unique_gerp.at[j,"Qty Per Assembly"]
+                if gerp_des==npt_des and gerp_part==npt_part and gerp_qty==npt_qty and gerp_parent==npt_parent: #완전 일치문 (parent는 일치해야 함 드라이어)
+                    if gerp_price==npt_price:
+                        gerp_data=unique_gerp.at[j,"Seq"]
+                        match_list.at[match_number,"gerp_true"]=gerp_data
+                    else:
+                        gerp_data=unique_gerp.at[j,"Seq"]
+                        match_list.at[match_number,"gerp_price"]=gerp_data
+                else:
+                    continue
+            ### HOW TO DROP 
+            used_index=unique_gerp[unique_gerp["Seq"]==gerp_data].index
+            unique_gerp=unique_gerp.drop(used_index,axis=0)
+            unique_gerp.reset_index(drop=True, inplace=True)
+        else:
+            print("Unidentified Model")
+    
+
+
+    #Screw,Taptite -> DR
+    elif npt_des=='Screw,Taptite':
+        for j in range(len(unique_gerp)): #duplicate 제외
+            gerp_part=unique_gerp.at[j,"Child Item"]
+            gerp_parent=unique_gerp.at[j,"Parent Item"]
+            gerp_des=unique_gerp.at[j,"Description"]
+            gerp_price=unique_gerp.at[j,"QPA*Material Cost"]
+            gerp_qty=unique_gerp.at[j,"Qty Per Assembly"]
+            if gerp_des==npt_des and gerp_part==npt_part and gerp_parent==npt_parent: #완전 일치문 (parent는 일치하지 않는 경우가 있어 제외)
+                if gerp_price==npt_price:
+                    gerp_data=unique_gerp.at[j,"Seq"]
+                    match_list.at[match_number,"gerp_true"]=gerp_data
+                else:
+                    gerp_data=unique_gerp.at[j,"Seq"]
+                    match_list.at[match_number,"gerp_price"]=gerp_data
+            else:
+                continue
+        ### HOW TO DROP 
+        used_index=unique_gerp[unique_gerp["Seq"]==gerp_data].index
+        unique_gerp=unique_gerp.drop(used_index,axis=0)
+        unique_gerp.reset_index(drop=True, inplace=True)
+
+    #Duct Assembly -> DR
+    elif npt_des=='Duct Assembly':
+        for j in range(len(unique_gerp)): #duplicate 제외
+            gerp_part=unique_gerp.at[j,"Child Item"]
+            gerp_sub_part=str(unique_gerp.at[j,"Child Item"])[:-1] # 끝자리 한자리까지 일치
+            gerp_des=unique_gerp.at[j,"Description"]
+            gerp_price=unique_gerp.at[j,"QPA*Material Cost"]
+            if npt_part.__contains__(gerp_sub_part): # 끝자리 한자리까지 일치
+                if gerp_part==npt_part: #완전일치
+                    if gerp_price==npt_price:
+                        gerp_data=unique_gerp.at[j,"Seq"]
+                        match_list.at[match_number,"gerp_true"]=gerp_data
+                    else:
+                        gerp_data=unique_gerp.at[j,"Seq"]
+                        match_list.at[match_number,"gerp_price"]=gerp_data
+                else:
+                    gerp_data=unique_gerp.at[j,"Seq"]
+                    match_list.at[match_number,"gerp_sub"]=gerp_data
+            else:
+                continue
+        ### HOW TO DROP 
+        used_index=unique_gerp[unique_gerp["Seq"]==gerp_data].index
+        unique_gerp=unique_gerp.drop(used_index,axis=0)
+        unique_gerp.reset_index(drop=True, inplace=True)
+
+    #Packing -> DR 
+    elif npt_des=='Packing':
+        for j in range(len(unique_gerp)):
+            gerp_parent=unique_gerp.at[j,"Parent Item"]
+            gerp_part=unique_gerp.at[j,"Child Item"]
+            gerp_des=unique_gerp.at[j,"Description"]
+            gerp_qty=unique_gerp.at[j,"Qty Per Assembly"]
+            if gerp_des==npt_des and gerp_part==npt_part: #부모랑 des일치하면 우선 배정, 파트넘버 전부 같음
+                if gerp_price==npt_price:
+                    gerp_data=unique_gerp.at[j,"Seq"]
+                    match_list.at[match_number,"gerp_true"]=gerp_data
+                else:
+                    gerp_data=unique_gerp.at[j,"Seq"]
+                    match_list.at[match_number,"gerp_price"]=gerp_data
+            else:
+                continue
+        ### HOW TO DROP 
+        used_index=unique_gerp[unique_gerp["Seq"]==gerp_data].index
+        unique_gerp=unique_gerp.drop(used_index,axis=0)
+        unique_gerp.reset_index(drop=True, inplace=True)
+
+    #Resin,EPS -> DR 
+    elif npt_des=='Resin,EPS':
+        for j in range(len(unique_gerp)):
+            gerp_parent=unique_gerp.at[j,"Parent Item"]
+            gerp_part=unique_gerp.at[j,"Child Item"]
+            gerp_des=unique_gerp.at[j,"Description"]
+            gerp_qty=unique_gerp.at[j,"Qty Per Assembly"]
+            if gerp_des==npt_des and gerp_part==npt_part and npt_parent==gerp_parent: #부모랑 des일치하면 우선 배정, 파트넘버 전부 같음
+                if gerp_price==npt_price:
+                    gerp_data=unique_gerp.at[j,"Seq"]
+                    match_list.at[match_number,"gerp_true"]=gerp_data
+                else:
+                    gerp_data=unique_gerp.at[j,"Seq"]
+                    match_list.at[match_number,"gerp_price"]=gerp_data
+            else:
+                continue
+        ### HOW TO DROP 
+        used_index=unique_gerp[unique_gerp["Seq"]==gerp_data].index
+        unique_gerp=unique_gerp.drop(used_index,axis=0)
+        unique_gerp.reset_index(drop=True, inplace=True)
+    else:
+        pass
+
+#Screw,Customized -> 부모, description, Qty 만보고 먼저 매치
+for i in range(len(npt)):
+    npt_part=npt.at[i,"Part No"]
+    npt_des=npt.at[i,"Desc."]
+    npt_price=npt.at[i,"Material Cost (LOC)"]
+    npt_qty=npt.at[i,"Unit Qty"]
+    match_number=npt.at[i,"Seq."]
+    if npt_des=="Screw,Customized":
+        for j in range(len(unique_gerp)): #duplicate 제외
+            gerp_part=unique_gerp.at[j,"Child Item"]
+            gerp_des=unique_gerp.at[j,"Description"]
+            gerp_price=unique_gerp.at[j,"QPA*Material Cost"]
+            gerp_qty=unique_gerp.at[j,"Qty Per Assembly"]
+            if gerp_des==npt_des and gerp_part==npt_part and gerp_qty==npt_qty: #완전 일치문 (parent는 일치하지 않는 경우가 있어 제외)
+                if gerp_price==npt_price:
+                    gerp_data=unique_gerp.at[j,"Seq"]
+                    match_list.at[match_number,"gerp_true"]=gerp_data
+                else:
+                    gerp_data=unique_gerp.at[j,"Seq"]
+                    match_list.at[match_number,"gerp_price"]=gerp_data
+            else:
+                continue
+        ### HOW TO DROP 
+        used_index=unique_gerp[unique_gerp["Seq"]==gerp_data].index
+        unique_gerp=unique_gerp.drop(used_index,axis=0)
+        unique_gerp.reset_index(drop=True, inplace=True)
+    else:
+        pass
+
+
+#Hanger,Upper -> 부모, description 만보고 먼저 매치
+sub_count=0
 count=0
-customized_screw=0
+gerp_drop=pd.DataFrame()
+for i in range(len(npt)):
+    npt_des=npt.at[i,"Desc."]
+    npt_part=npt.at[i,"Part No"]
+    npt_sub=str(npt.at[i,"Part No"])[:-2] #part넘버가 모두 숫자인 경우
+    npt_price=npt.at[i,"Material Cost (LOC)"]
+    match_number=npt.at[i,"Seq."]
+    for j in range(len(unique_gerp)): #duplicate 제외
+        gerp_des=unique_gerp.at[j,"Description"]
+        gerp_price=unique_gerp.at[j,"QPA*Material Cost"]
+        gerp_part=unique_gerp.at[j,"Child Item"]
+        gerp_sub=str(unique_gerp.at[j,"Child Item"])[:-2] #part넘버가 모두 숫자인 경우
+        #완전 일치문 (parent는 일치하지 않는 경우가 있어 제외)
+        if gerp_des=='Hanger,Upper' and gerp_des==npt_des and gerp_part==npt_part: 
+            if gerp_price==npt_price:
+                match_number=npt.at[j,"Seq."]
+                match_list.at[match_number,"gerp_true"]=unique_gerp.at[j,"Seq"] #gerp는 j
+                #드롭할 것 담기
+                gerp_drop.at[count,"gerp"]=unique_gerp.at[j,"Seq"]
+                count=count+1
+            else:
+                match_numbre=npt.at[i,"Seq."]
+                match_list.at[match_number,"gerp_price"]=unique_gerp.at[j,"Seq"] #gerp는 j
+                #드롭할 것 담기
+                gerp_drop.at[count,"gerp"]=unique_gerp.at[j,"Seq"]
+                count=count+1
 
-#남은 것 다시 매칭
-for i in range(len(unique_gerp)):
-    unique_parent=unique_gerp.at[i,"Parent Item"]
-    unique_subparent=str(unique_gerp.at[i,"Parent Item"])[:-2]
-    unique_part=unique_gerp.at[i,"Child Item"]
-    unique_subpart=str(unique_gerp.at[i,"Child Item"])[:-2]
-    unique_des=unique_gerp.at[i,"Description"]
-    unique_qty=unique_gerp.at[i,"Qty Per Assembly"]
-    unique_seq=unique_gerp.at[i,"Seq"]
+        #sub로 매치
+        elif gerp_des=='Hanger,Upper' and gerp_des==npt_des and gerp_sub==npt_sub: 
+            if sub_count==0: #한번도 sub 매치 안된 경우
+                match_number=npt.at[i,"Seq."]
+                match_list.at[match_number,"gerp_sub"]=unique_gerp.at[j,"Seq"] #gerp는 j
+                sub_count=sub_count+1
+                #드롭할 것 담기
+                gerp_drop.at[count,"gerp"]=unique_gerp.at[j,"Seq"]
+                count=count+1
+            else:
+                match_number=npt.at[i,"Seq."]
+                match_list.at[match_number,"gerp_exc"]=unique_gerp.at[j,"Seq"] #gerp는 j
+                sub_count=0
+                #드롭할 것 담기
+                gerp_drop.at[count,"gerp"]=unique_gerp.at[j,"Seq"]
+                count=count+1
 
-    for j in range(len(npt)): #duplicate 제외
-        npt_parent=npt.at[j,"Parent Part"]
-        npt_part=npt.at[j,"Part No"]
-        npt_subpart=str(npt.at[j,"Part No"])[:-2]
-        npt_des=npt.at[j,"Desc."]
-        npt_qty=npt.at[j,"Accum Qty"]
-        npt_level=int(npt.at[j,"Lvl"][-1:])
-        match_number=npt.at[j,"Seq."]
-
-        ###################### Screw, Tapping ######################
-        if npt_des=="Screw,Tapping" and npt_des==unique_des and npt_part==unique_part and npt_qty==unique_qty: 
-            match_list.at[match_number,"gerp_exc"]=unique_seq
-            unique_match.at[count,"index"]=i
-            count=count+1
-
-        ###################### Damper ######################
-        elif npt_des=='Sheet,Steel(GI)' and npt_des=='Damper' and unique_subpart=='MCQ673952'and npt_part==unique_part:
-            match_list.at[match_number,"gerp_exc"]=unique_seq
-            unique_match.at[count,"index"]=i
-            count=count+1
-
-        ###################### Common Parts Assembly ######################
-        elif npt_des=='Common,Parts Assembly,SVC' and npt_subpart=='AGM300531' and unique_subpart=='AGM300531' and npt_part==unique_part:
-            match_list.at[match_number,"gerp_exc"]=unique_seq
-            unique_match.at[count,"index"]=i
-            count=count+1
-        
-        ###################### Customized Screw ######################
-        elif npt_des=="Screw,Customized" and npt_des==unique_des and npt_part==unique_part and npt_qty==unique_qty and npt_parent==unique_parent:
-            match_list.at[match_number,"gerp_exc"]=unique_seq
-            unique_match.at[count,"index"]=i
-            count=count+1
-        
-        elif npt_des=="Screw,Customized" and npt_des==unique_des and npt_part=="FAB30598601" and npt_part==unique_part and npt_qty==unique_qty:
-            match_list.at[match_number,"gerp_exc"]=unique_seq
-            unique_match.at[count,"index"]=i
-            count=count+1
-
-        ###################### Upper Hanger ######################
-        elif unique_des=='Hanger,Upper' and npt_des==unique_des and npt_part==unique_part:
-            match_list.at[match_number,"gerp_exc"]=unique_seq
-            unique_match.at[count,"index"]=i
-            count=count+1
-
-        ###################### Holder ######################
-        elif npt_des=="Holder" and npt_level>2 and npt_des==unique_des and npt_part==unique_part:
-            match_list.at[match_number,"gerp_exc"]=unique_seq
-            unique_match.at[count,"index"]=i
-            count=count+1
-
-        ###################### Rear,Cover ######################
-        elif npt_des=="Cover,Rear" and unique_parent=="MCK69953701":
-            match_list.at[match_number,"gerp_re"]=unique_seq
-            unique_match.at[count,"index"]=i
-            count=count+1
+        #door glass -> parent 다른게 두게
+        elif gerp_des=="Door,Glass" and npt_des==gerp_des and gerp_sub==npt_sub:
+            if gerp_part==npt_part: #parent 다르지만 part 일치
+                match_number=npt.at[i,"Seq."]
+                match_list.at[match_number,"gerp_price"]=unique_gerp.at[j,"Seq"] #gerp는 j
+                sub_count=sub_count+1
+                #드롭할 것 담기
+                gerp_drop.at[count,"gerp"]=unique_gerp.at[j,"Seq"]
+                count=count+1
+            else:
+                match_number=npt.at[i,"Seq."]
+                match_list.at[match_number,"gerp_exc"]=unique_gerp.at[j,"Seq"] #gerp는 j
+                sub_count=0
+                #드롭할 것 담기
+                gerp_drop.at[count,"gerp"]=unique_gerp.at[j,"Seq"]
+                count=count+1
 
         else:
-            pass
+            continue
 
-
-#remain_match 존재 유무
-remain_match_count=len(unique_match)
-if remain_match_count==0:
-    pass
+### HOW TO DROP 
+unique_gerp.index=unique_gerp["Seq"] #index reset
+if len(gerp_drop)==0:
+    unique_gerp.reset_index(drop=True, inplace=True)
 else:
-    #matching 된 행은 제거 & 재정렬
-    A=unique_match["index"].tolist()
-    unique_gerp=unique_gerp.drop(A,axis=0)
-    unique_gerp.reset_index(inplace=True, drop=True)
+    drop_index=gerp_drop.gerp.tolist()
+    unique_gerp=unique_gerp.drop(drop_index,axis=0)
+    unique_gerp.reset_index(drop=True, inplace=True)
 
-################################################## 일치 조건문 - 완전일치 ##################################################
+
+
+# Holder -> 파트넘버, des 보고 바로 매치
+for i in range(len(npt)):
+    npt_parent=npt.at[i,"Parent Part"]
+    npt_part=npt.at[i,"Part No"]
+    npt_des=npt.at[i,"Desc."]
+    npt_price=npt.at[i,"Material Cost (LOC)"]
+    npt_level=int(npt.at[i,"Lvl"][-1:])
+    match_number=npt.at[i,"Seq."]
+    for j in range(len(unique_gerp)): #duplicate 제외
+        gerp_part=unique_gerp.at[j,"Child Item"]
+        gerp_des=unique_gerp.at[j,"Description"]
+        gerp_price=unique_gerp.at[j,"QPA*Material Cost"]
+        if npt_des=="Holder" and npt_level>2 and npt_des==gerp_des and npt_part==gerp_part:
+            if gerp_price==npt_price:
+                gerp_data=unique_gerp.at[j,"Seq"]
+                match_list.at[match_number,"gerp_true"]=gerp_data
+            else:
+                gerp_data=unique_gerp.at[j,"Seq"]
+                match_list.at[match_number,"gerp_price"]=gerp_data
+        else:
+            continue
+    else:
+        pass
+
+
+    ### HOW TO DROP 
+    used_index=unique_gerp[unique_gerp["Seq"]==gerp_data].index
+    unique_gerp=unique_gerp.drop(used_index,axis=0)
+    unique_gerp.reset_index(drop=True, inplace=True)
+
+remain_match=pd.DataFrame()
+count=0
+
+for i in range(len(npt)):
+    npt_parent=npt.at[i,"Parent Part"]
+    npt_part=npt.at[i,"Part No"]
+    npt_subpart=npt.at[i,"Part No"][:-2]
+    npt_des=npt.at[i,"Desc."]
+    npt_level=int(npt.at[i,"Lvl"][-1:])
+    match_number=npt.at[i,"Seq."]
+    for j in range(len(unique_gerp)): #duplicate 제외
+        gerp_part=unique_gerp.at[j,"Child Item"]
+        gerp_subpart=unique_gerp.at[j,"Child Item"][:-2]
+        gerp_des=unique_gerp.at[j,"Description"]
+        remain_seq=unique_gerp.at[j,"Seq"]
+
+        ############### Heater Assembly ###############
+        if gerp_des=="Heater Assembly" and npt_des==gerp_des and count==0:
+            gerp_data=unique_gerp.at[j,"Seq"]
+            match_list.at[match_number,"gerp_true"]=gerp_data
+            count=count+1
+
+        elif gerp_des=="Heater Assembly" and npt_des==gerp_des and count==1:
+            gerp_data=unique_gerp.at[j,"Seq"]
+            match_list.at[match_number,"gerp_true"]=gerp_data
+            count=count+1
+
+    ### HOW TO DROP 
+    used_index=unique_gerp[unique_gerp["Seq"]==gerp_data].index
+    unique_gerp=unique_gerp.drop(used_index,axis=0)
+    unique_gerp.reset_index(drop=True, inplace=True)
+####################################### Arrange - Matching Perfectly #######################################
 for i in range(len(npt)):
     npt_part=npt.at[i,"Part No"]
     npt_des=npt.at[i,"Desc."]
@@ -443,8 +676,8 @@ for i in range(len(npt)):
     unique_gerp=unique_gerp.drop(used_index,axis=0)
     unique_gerp.reset_index(drop=True, inplace=True)
 
-################################################## 일치 조건문 - substitute ##################################################
-# part no 2자리 빼고 똑같은 것 ==> 둘다 parent와 description
+
+####################################### Arrange - Matching Substitute #######################################
 for i in range(len(npt)):
     npt_part=str(npt.at[i,"Part No"])
     npt_des=npt.at[i,"Desc."]
@@ -467,8 +700,7 @@ for i in range(len(npt)):
     unique_gerp.reset_index(drop=True, inplace=True)    
 
 
-################################################## 일치 조건문 - substitute ##################################################
-#part no 완전 다른 것 ==> 둘다 parent와 description
+#일치 조건문 - substitute   (part no 완전 다른 것 ==> 둘다 parent와 description)
 for i in range(len(npt)):
     #Label,Barcode의 경우 매칭되지 않도록 주의 
     npt_des=npt.at[i,"Desc."]
@@ -496,7 +728,8 @@ for i in range(len(npt)):
         unique_gerp=unique_gerp.drop(used_index,axis=0)
         unique_gerp.reset_index(drop=True, inplace=True)   
 
-################################################## 일치 조건문 - parent 불일치 ##################################################
+
+####################################### Arrange - Matching except parent #######################################
 for i in range(len(npt)):
     npt_part=npt.at[i,"Part No"]
     npt_des=npt.at[i,"Desc."]
@@ -518,8 +751,8 @@ for i in range(len(npt)):
     unique_gerp=unique_gerp.drop(used_index,axis=0)
     unique_gerp.reset_index(drop=True, inplace=True) 
 
-
-################################################## 일치 조건문 - parent 불일치 ##################################################
+####################################### Arrange - Matching except parent #######################################
+### 매칭 안된 데이터 - 남는 데이터 가지고 다시 비교
 #price, parent -> parent는 드롭 -> unique_add
 match_list=match_list.reset_index()
 unique_parent=pd.DataFrame()
@@ -550,140 +783,144 @@ else:
     #남은 것 다시 매칭하기 위해 행렬 정렬 -> 아래 조건문에서 자기 자리 찾아감
     match_list.index=match_list['index']
 
-
-################################################## Remain GERP ##################################################
-
-############################ 1) NPT Sequence -> Parent #########################
-############ handle assembly => gerp_parent 값이 두개인 경우 ############
-match_list.index=match_list['gerp_parent']
-
+####################################### Arrange - remain gerp #######################################
+### 매칭 안된 데이터 - 남는 데이터 가지고 다시 비교
+############################ 2) NPT Sequence -> index #########################
+match_list.index=match_list['index']
 remain_match=pd.DataFrame()
 count=0
 for i in range(len(remain_gerp)): #i -> gerp
     remain_des=remain_gerp.at[i,"Description"]
+    remain_subdes=remain_gerp.at[i,"Description"][:-2]
     remain_parent=remain_gerp.at[i,"Parent Item"]
-    remain_seq=remain_gerp.at[i,"Seq"]
-    if remain_des=='Handle':
-        for j in range(len(gerp)):
-            gerp_parent=gerp.at[j,"Parent Item"]
-            gerp_des=gerp.at[j,"Description"]
-            gerp_seq=gerp.at[j,"Seq"]
-            if gerp_des=='Handle Assembly' and gerp_parent==remain_parent:
-                match_list.at[gerp_seq,"gerp_re"]=remain_gerp.at[i,"Seq"]
-                remain_match.at[count,"index"]=i
-                count=count+1
-    elif remain_des=='Handle Assembly':
-        for j in range(len(gerp)):
-            gerp_parent=gerp.at[j,"Parent Item"]
-            gerp_des=gerp.at[j,"Description"]
-            gerp_seq=gerp.at[j,"Seq"]
-            if gerp_des=='Handle' and gerp_parent==remain_parent:
-                match_list.at[gerp_seq,"gerp_re"]=remain_gerp.at[i,"Seq"]
-                remain_match.at[count,"index"]=i
-                count=count+1
-        else:
-            pass
-match_list.reset_index(drop=True, inplace=True)
-#remain_match 존재 유무
-remain_match_count=len(remain_match)
-if remain_match_count==0:
-    pass
-else:
-    #matching 된 행은 제거 & 재정렬
-    A=remain_match["index"].tolist()
-    remain_gerp=remain_gerp.drop(A,axis=0)
-    remain_gerp.reset_index(inplace=True, drop=True)
-
-
-############################ 2) NPT Sequence -> Index #########################
-match_list.reset_index(inplace=True, drop=True)
-match_list.index=match_list['index']
-
-remain_match=pd.DataFrame()
-pcm_count=0
-for i in range(len(remain_gerp)): #i -> gerp
-    remain_des=remain_gerp.at[i,"Description"]
+    remain_subparent=remain_gerp.at[i,"Parent Item"][:-2]
+    remain_part=remain_gerp.at[i,"Child Item"]
     remain_subpart=remain_gerp.at[i,"Child Item"][:-2]
-    remain_parent=remain_gerp.at[i,"Parent Item"]
     remain_seq=remain_gerp.at[i,"Seq"]
-    
+
     for j in range(len(npt)):
         npt_des=npt.at[j,"Desc."]
-        npt_subpart=str(npt.at[j,"Part No"])[:-2]
-        npt_parent=str(npt.at[j,"Parent Part"])
+        npt_subdes=npt.at[j,"Desc."][:-2]
+        npt_parent=npt.at[j,"Parent Part"]
+        npt_part=npt.at[j,"Part No"]
+        npt_subpart=npt.at[j,"Part No"][:-2]
         match_number=npt.at[j,"Seq."]
-        
+
         ############### coil,sheet(sts) ###############
-        if remain_des=='Coil,Steel(STS)' and npt_des==remain_des:
+        if remain_des=="Coil,Steel(STS)" and npt_des=="Sheet,Steel(STS)" and npt_parent==remain_parent:
             match_list.at[match_number,"gerp_re"]=remain_seq
-            remain_match.at[match_number,"index"]=i
-
-        ############## sheet,Steel(STS) ###############
-        elif remain_des=='Sheet,Steel(STS)' and npt_des.__contains__(',Steel(STS)') and npt_parent==remain_parent: 
-            match_list.at[match_number,"gerp_re"]=remain_seq
-            remain_match.at[match_number,"index"]=i
-
-        ############## 'Sheet,Steel(GI)' ###############
-        elif remain_des=='Sheet,Steel(GI)' and npt_des==remain_des: 
-            match_list.at[match_number,"gerp_re"]=remain_seq
-            remain_match.at[match_number,"index"]=i
-
+            remain_match.at[count,"index"]=i
+            count=count+1
         
-        ############## 'Sheet,Steel(PCM)' ###############
-        elif remain_des=='Sheet,Steel(PCM)' and npt_subpart==remain_subpart: 
-            pcm_count=pcm_count+1
-            if pcm_count==1:
-                pcm_match=match_number+pcm_count*0.1
-                match_list.at[match_number,"gerp_sub"]=remain_seq
-                remain_match.at[pcm_match,"index"]=i
-
-            elif pcm_count==2:
-                pcm_match=match_number+pcm_count*0.1
+        ############### Coil,Steel(GI) ###############
+        elif remain_des=='Coil,Steel(GI)':
+            if npt_parent==remain_parent and npt_des=='Sheet,Steel(GA)':
                 match_list.at[match_number,"gerp_re"]=remain_seq
-                remain_match.at[pcm_match,"index"]=i
+                remain_match.at[count,"index"]=i
+                count=count+1
+            elif npt_part==remain_part and npt_des==remain_des:
+                match_list.at[match_number,"gerp_re"]=remain_seq
+                remain_match.at[count,"index"]=i
+                count=count+1
+            elif npt_des=="Sheet,Steel(GI)" and remain_parent==npt_parent:
+                match_list.at[match_number,"gerp_re"]=remain_seq
+                remain_match.at[count,"index"]=i
+                count=count+1
 
-            elif pcm_count==3:
-                pcm_match=match_number+pcm_count*0.1
-                match_list.at[match_number,"gerp_exc"]=remain_seq
-                remain_match.at[pcm_match,"index"]=i
-  
-            else:
-                pass
-        
-        ############## pulsator cover ###############
-        elif remain_des=='Cover,Pulsator' and remain_des==npt_des and remain_subpart==npt_subpart:
+        ############### Sheet,Steel(PCM) ###############
+        elif remain_des=="Sheet,Steel(PCM)" and npt_des=="Sheet,Steel(PCM)" and npt_subpart==remain_subpart:
             match_list.at[match_number,"gerp_re"]=remain_seq
-            remain_match.at[match_number,"index"]=i
+            remain_match.at[count,"index"]=i
+            count=count+1
 
+        ############### Sheet,Steel(GI) ###############
+        elif remain_des=='Sheet,Steel(GI)' and npt_parent==remain_parent and npt_des=='Coil,Steel(GI)':
+            match_list.at[match_number,"gerp_re"]=remain_seq
+            remain_match.at[count,"index"]=i
+            count=count+1
 
-        ############## rotor, stator combined ###############
+        ############### Sheet,Steel(STS) ###############
+        elif npt_des=='Sheet,Steel(STS)' and remain_des=='Coil,Steel(STS)':
+            match_list.at[match_number,"gerp_re"]=remain_seq
+            remain_match.at[count,"index"]=i
+            count=count+1
+
+        ############### resin,asa ###############
+        elif npt_des=='Resin,A' and npt_parent==remain_parent:
+            match_list.at[match_number,"gerp_re"]=remain_seq
+            remain_match.at[count,"index"]=i
+            count=count+1
+
+        ############### rotor, stator ###############
         elif remain_des.__contains__('Assembly,Combined') and remain_des.__contains__(npt_des):
             match_list.at[match_number,"gerp_re"]=remain_seq
-            remain_match.at[match_number,"index"]=i
+            remain_match.at[count,"index"]=i
+            count=count+1
 
+        ############### rotor assembly ###############
+        elif remain_des=='Rotor Assembly' and npt_des.__contains__('Rotor'):
+            match_list.at[match_number,"gerp_re"]=remain_seq
+            remain_match.at[count,"index"]=i
+            count=count+1
 
-        ############## hanger pivot ###############
+        ############### stator assembly ###############
+        elif remain_des=='Stator Assembly' and npt_des.__contains__('Stator'):
+            match_list.at[match_number,"gerp_re"]=remain_seq
+            remain_match.at[count,"index"]=i
+            count=count+1
+
+        ############### hanger pivot ###############
         elif remain_des.__contains__(',Pivot') and remain_des==npt_des and remain_subpart==npt_subpart:
             match_list.at[match_number,"gerp_re"]=remain_seq
-            remain_match.at[match_number,"index"]=i
-    
-        ############## upper hanger ###############
-        elif remain_des=="Hanger,Upper" and remain_des==npt_des and remain_subpart==npt_subpart:
+            remain_match.at[count,"index"]=i
+            count=count+1
+
+        ############### handle ###############
+        elif remain_des=='Handle' and npt_des=='Handle Assembly' and npt_parent==remain_parent:
             match_list.at[match_number,"gerp_re"]=remain_seq
-            remain_match.at[match_number,"index"]=i
-            print(i)
-
-        ############## Damper Assembly,Friction ###############
-        elif remain_des=='Damper Assembly,Friction' and npt_des==remain_des and match_number==539:
-            #remian_gerp_duplicate-bug
+            remain_match.at[count,"index"]=i
+            count=count+1
+        
+        ############### handle assembly ###############
+        elif remain_des=='Handle Assembly' and npt_des=='Handle' and npt_parent==remain_parent:
             match_list.at[match_number,"gerp_re"]=remain_seq
-            remain_match.at[match_number,"index"]=i
+            remain_match.at[count,"index"]=i
+            count=count+1
+
+        ############### Door Glass ###############
+        elif remain_des=='Door,Glass'and gerp_parent==remain_parent and gerp_des=='Door,Glass':
+            match_list.at[match_number,"gerp_re"]=remain_seq
+            remain_match.at[count,"index"]=i
+            count=count+1
+
+        ############### Barcode Label ###############
+        elif remain_des=="Label,Barcode" and npt_subpart==remain_subpart and npt_des==remain_des:
+            match_list.at[match_number,"gerp_re"]=remain_seq
+            remain_match.at[count,"index"]=i
+            count=count+1
+
+        ############### Complex PCB ###############
+        elif remain_des=="PCB Assembly,Complex" and npt_subpart==remain_subpart:
+            match_list.at[match_number,"gerp_re"]=remain_seq
+            remain_match.at[count,"index"]=i
+            count=count+1
+
+        ############### Wrap ###############
+        elif remain_des=="Wrap" and npt_subpart==remain_subpart:
+            match_list.at[match_number,"gerp_re"]=remain_seq
+            remain_match.at[count,"index"]=i
+            count=count+1
 
 
-        ############## PASS ###############
+        ############### Control Panel ###############
+        elif remain_des=="Panel Assembly,Control" and npt_subpart==remain_subpart:
+            match_list.at[match_number,"gerp_re"]=remain_seq
+            remain_match.at[count,"index"]=i
+            count=count+1
+        
         else:
             pass
-
+    
 match_list["index"]=match_list.index
 match_list.reset_index(drop=True, inplace=True)
 
@@ -699,7 +936,7 @@ else:
 
 
 ############### remain gerp 매칭 안되고 missing 된것
-remain_gerp.to_excel('C:/Users/RnD Workstation/Documents/NPTGERP/0512/TL/remaingerp.xlsx')
+remain_gerp.to_excel('C:/Users/RnD Workstation/Documents/NPTGERP/0512/DR/remaingerp.xlsx')
 
 
 ####################################### match_list "match_digit" #######################################
@@ -739,7 +976,7 @@ else:
     match_list=match_list.drop(exclude_list[0].values.tolist(),axis=1)
 
 match_list=match_list.rename(columns={"index": "Seq."})
-match_list.to_excel('C:/Users/RnD Workstation/Documents/NPTGERP/0512/TL/matchlist.xlsx')
+match_list.to_excel('C:/Users/RnD Workstation/Documents/NPTGERP/0512/DR/matchlist.xlsx')
 
 ######################################## submatchlist matching with match_digit
 sub_matchlist=pd.DataFrame()
@@ -753,6 +990,46 @@ for i in range(len(match_list)):
         sub_matchlist.at[change_count,"Seq."]=match_list.at[i,'Seq.']
         sub_matchlist.at[change_count,"gerpSeq."]=match_list.at[i,'gerp_true']
         sub_matchlist.at[change_count,"gerp_true"]=match_list.at[i,'gerp_true']
+        change_count=change_count+1
+
+    ############### true, re ###############
+    elif match_digit==101:
+        #true
+        sub_matchlist.at[change_count,"Seq."]=match_list.at[i,'Seq.']
+        sub_matchlist.at[change_count,"gerpSeq."]=match_list.at[i,'gerp_true']
+        sub_matchlist.at[change_count,"gerp_true"]=match_list.at[i,'gerp_true']
+        change_count=change_count+1
+        #re
+        sub_matchlist.at[change_count,"Seq."]=match_list.at[i,'Seq.']
+        sub_matchlist.at[change_count,"gerpSeq."]=match_list.at[i,'gerp_re']
+        sub_matchlist.at[change_count,"gerp_re"]=match_list.at[i,'gerp_re']
+        change_count=change_count+1
+    
+    ############### true, price ###############
+    elif match_digit==100100:
+        #true
+        sub_matchlist.at[change_count,"Seq."]=match_list.at[i,'Seq.']
+        sub_matchlist.at[change_count,"gerpSeq."]=match_list.at[i,'gerp_true']
+        sub_matchlist.at[change_count,"gerp_true"]=match_list.at[i,'gerp_true']
+        change_count=change_count+1
+        #re
+        sub_matchlist.at[change_count,"Seq."]=match_list.at[i,'Seq.']
+        sub_matchlist.at[change_count,"gerpSeq."]=match_list.at[i,'gerp_price']
+        sub_matchlist.at[change_count,"gerp_price"]=match_list.at[i,'gerp_price']
+        change_count=change_count+1
+
+
+    ############### true, parent ###############
+    elif match_digit==110:
+        #true
+        sub_matchlist.at[change_count,"Seq."]=match_list.at[i,'Seq.']
+        sub_matchlist.at[change_count,"gerpSeq."]=match_list.at[i,'gerp_true']
+        sub_matchlist.at[change_count,"gerp_true"]=match_list.at[i,'gerp_true']
+        change_count=change_count+1
+        #re
+        sub_matchlist.at[change_count,"Seq."]=match_list.at[i,'Seq.']
+        sub_matchlist.at[change_count,"gerpSeq."]=match_list.at[i,'gerp_parent']
+        sub_matchlist.at[change_count,"gerp_parent"]=match_list.at[i,'gerp_parent']
         change_count=change_count+1
     
     ############### price ###############
@@ -781,18 +1058,18 @@ for i in range(len(match_list)):
         sub_matchlist.at[change_count,"gerp_parent"]=match_list.at[i,'gerp_parent']
         sub_matchlist.at[change_count,"gerpSeq."]=match_list.at[i,'gerp_parent']
         change_count=change_count+1
-
-    ############### parent, exc ###############
-    elif match_digit==1010:
+    
+    ############### parent, re ###############
+    elif match_digit==11:
         #parent
         sub_matchlist.at[change_count,"Seq."]=match_list.at[i,'Seq.']
         sub_matchlist.at[change_count,"gerp_parent"]=match_list.at[i,'gerp_parent']
         sub_matchlist.at[change_count,"gerpSeq."]=match_list.at[i,'gerp_parent']
         change_count=change_count+1
-        # exc
+        # re
         sub_matchlist.at[change_count,"Seq."]=match_list.at[i,'Seq.']
-        sub_matchlist.at[change_count,"gerp_exc"]=match_list.at[i,'gerp_exc']
-        sub_matchlist.at[change_count,"gerpSeq."]=match_list.at[i,'gerp_exc']
+        sub_matchlist.at[change_count,"gerp_re"]=match_list.at[i,'gerp_re']
+        sub_matchlist.at[change_count,"gerpSeq."]=match_list.at[i,'gerp_re']
         change_count=change_count+1
 
     ############### sub ###############
@@ -827,41 +1104,42 @@ for i in range(len(match_list)):
         sub_matchlist.at[change_count,"gerp_sub"]=match_list.at[i,'gerp_sub']
         sub_matchlist.at[change_count,"gerpSeq."]=match_list.at[i,'gerp_sub']
         change_count=change_count+1
-        #sub
+        #exc
         sub_matchlist.at[change_count,"Seq."]=match_list.at[i,'Seq.']
         sub_matchlist.at[change_count,"gerp_exc"]=match_list.at[i,'gerp_exc']
         sub_matchlist.at[change_count,"gerpSeq."]=match_list.at[i,'gerp_exc']
         change_count=change_count+1
-
-    ############### sub, parent ###############
-    elif match_digit==10010:
+    
+    ############### sub, price,re ###############
+    elif match_digit==110001:
+        #price
+        sub_matchlist.at[change_count,"Seq."]=match_list.at[i,'Seq.']
+        sub_matchlist.at[change_count,"gerp_price"]=match_list.at[i,'gerp_price']
+        sub_matchlist.at[change_count,"gerpSeq."]=match_list.at[i,'gerp_price']
+        change_count=change_count+1
         #sub
         sub_matchlist.at[change_count,"Seq."]=match_list.at[i,'Seq.']
         sub_matchlist.at[change_count,"gerp_sub"]=match_list.at[i,'gerp_sub']
         sub_matchlist.at[change_count,"gerpSeq."]=match_list.at[i,'gerp_sub']
-        change_count=change_count+1
-        #parent
-        sub_matchlist.at[change_count,"Seq."]=match_list.at[i,'Seq.']
-        sub_matchlist.at[change_count,"gerp_parent"]=match_list.at[i,'gerp_parent']
-        sub_matchlist.at[change_count,"gerpSeq."]=match_list.at[i,'gerp_parent']
-        change_count=change_count+1
-
-    ############### sub, parent, re ###############
-    elif match_digit==10011:
-        #sub
-        sub_matchlist.at[change_count,"Seq."]=match_list.at[i,'Seq.']
-        sub_matchlist.at[change_count,"gerp_sub"]=match_list.at[i,'gerp_sub']
-        sub_matchlist.at[change_count,"gerpSeq."]=match_list.at[i,'gerp_sub']
-        change_count=change_count+1
-        #parent
-        sub_matchlist.at[change_count,"Seq."]=match_list.at[i,'Seq.']
-        sub_matchlist.at[change_count,"gerp_parent"]=match_list.at[i,'gerp_parent']
-        sub_matchlist.at[change_count,"gerpSeq."]=match_list.at[i,'gerp_parent']
         change_count=change_count+1
         #re
         sub_matchlist.at[change_count,"Seq."]=match_list.at[i,'Seq.']
         sub_matchlist.at[change_count,"gerp_re"]=match_list.at[i,'gerp_re']
         sub_matchlist.at[change_count,"gerpSeq."]=match_list.at[i,'gerp_re']
+        change_count=change_count+1
+
+
+    ############### sub, parent ###############
+    elif match_digit==10010:
+        #price
+        sub_matchlist.at[change_count,"Seq."]=match_list.at[i,'Seq.']
+        sub_matchlist.at[change_count,"gerp_parent"]=match_list.at[i,'gerp_parent']
+        sub_matchlist.at[change_count,"gerpSeq."]=match_list.at[i,'gerp_parent']
+        change_count=change_count+1
+        #sub
+        sub_matchlist.at[change_count,"Seq."]=match_list.at[i,'Seq.']
+        sub_matchlist.at[change_count,"gerp_sub"]=match_list.at[i,'gerp_sub']
+        sub_matchlist.at[change_count,"gerpSeq."]=match_list.at[i,'gerp_sub']
         change_count=change_count+1
 
     ############### re ###############
@@ -891,19 +1169,6 @@ for i in range(len(match_list)):
         sub_matchlist.at[change_count,"gerpSeq."]=match_list.at[i,'gerp_exc']
         change_count=change_count+1
 
-    ############### exc, true ###############
-    elif match_digit==1100:
-        #true
-        sub_matchlist.at[change_count,"Seq."]=match_list.at[i,'Seq.']
-        sub_matchlist.at[change_count,"gerp_true"]=match_list.at[i,'gerp_true']
-        sub_matchlist.at[change_count,"gerpSeq."]=match_list.at[i,'gerp_true']
-        change_count=change_count+1
-        #exc
-        sub_matchlist.at[change_count,"Seq."]=match_list.at[i,'Seq.']
-        sub_matchlist.at[change_count,"gerp_exc"]=match_list.at[i,'gerp_exc']
-        sub_matchlist.at[change_count,"gerpSeq."]=match_list.at[i,'gerp_exc']
-        change_count=change_count+1
-
     ############### exc, price ###############
     elif match_digit==101000:
         #price
@@ -916,21 +1181,6 @@ for i in range(len(match_list)):
         sub_matchlist.at[change_count,"Seq."]=match_list.at[i,'Seq.']
         sub_matchlist.at[change_count,"gerp_exc"]=match_list.at[i,'gerp_exc']
         sub_matchlist.at[change_count,"gerpSeq."]=match_list.at[i,'gerp_exc']
-        sub_matchlist.at[change_count,"count"]=1 #final table false column
-        change_count=change_count+1
-
-    ############### exc, re ###############
-    elif match_digit==1001:
-        #exc
-        sub_matchlist.at[change_count,"Seq."]=match_list.at[i,'Seq.']
-        sub_matchlist.at[change_count,"gerp_exc"]=match_list.at[i,'gerp_exc']
-        sub_matchlist.at[change_count,"gerpSeq."]=match_list.at[i,'gerp_exc']
-        sub_matchlist.at[change_count,"count"]=1 #final table false column
-        change_count=change_count+1
-        #re
-        sub_matchlist.at[change_count,"Seq."]=match_list.at[i,'Seq.']
-        sub_matchlist.at[change_count,"gerp_re"]=match_list.at[i,'gerp_re']
-        sub_matchlist.at[change_count,"gerpSeq."]=match_list.at[i,'gerp_re']
         sub_matchlist.at[change_count,"count"]=1 #final table false column
         change_count=change_count+1
 
@@ -983,13 +1233,11 @@ for i in range(len(match_list)):
         print(match_digit)
 
 
-
 # match=False -> count=0 matching
 match_join = pd.merge(npt['Seq.'], sub_matchlist, on ='Seq.', how ='left')    
 
 #save file
-match_join.to_excel('C:/Users/RnD Workstation/Documents/NPTGERP/0512/TL/matchjoin.xlsx')
-
+match_join.to_excel('C:/Users/RnD Workstation/Documents/NPTGERP/0512/DR/matchjoin.xlsx')
 
 ######################################### final table
 #final table
@@ -1008,7 +1256,6 @@ for i in range(len(match_join)):
     final_table.at[i,"Parent Part"]=npt_column.at[0,"Parent Part"]
     final_table.at[i,"Part No"]=npt_column.at[0,"Part No"]
     final_table.at[i,"Desc."]=npt_column.at[0,"Desc."]
-    final_table.at[i,"UIT"]=npt_column.at[0,"UIT"]
     final_table.at[i,"UOM"]=npt_column.at[0,"UOM"]
     final_table.at[i,"Unit Qty"]=npt_column.at[0,"Unit Qty"]
     final_table.at[i,"Accum Qty"]=npt_column.at[0,"Accum Qty"]
@@ -1037,7 +1284,6 @@ for i in range(len(match_join)):
         final_table.at[i,"Child Item"]=''
         final_table.at[i,"Description"]=''
         final_table.at[i,"Item Type"]=''
-        final_table.at[i,"Item Type"]=''
         final_table.at[i,"Qty Per Assembly"]=''
         final_table.at[i,"Material Cost"]=''
         final_table.at[i,"QPA*Material Cost"]=''
@@ -1063,8 +1309,9 @@ for i in range(len(match_join)):
         final_table.at[i,"match"]=True
         final_table.at[i,"price match"]=''
 
+
 #######################Add MTL Column####################
-mtl=pd.read_excel('C:/Users/RnD Workstation/Documents/NPTGERP/0512/TL/gerp.xlsx',sheet_name='MTL Cost')
+mtl=pd.read_excel('C:/Users/RnD Workstation/Documents/NPTGERP/0512/DR/gerp.xlsx',sheet_name='MTL Cost')
 mtl=mtl[['Item No','Item Cost','Material Overhead Cost','Creation Period']]
 #mtl 부분 데이터 정리
 mtl=mtl.rename(columns={'Item No':'Child Item','Creation Period':'PAC Creation','Item Cost':'MTL Cost','Material Overhead Cost':'MTL OH'})
@@ -1080,85 +1327,8 @@ mtl_final=pd.merge(final_table, mtl, on='Child Item', how='left')
 final_table = mtl_final.sort_values(by=['Seq.'],ascending=True)
 
 
-################################################ Qty Comparsion ################################################
-######################## General GERP Total Qty ########################
-for i in range(len(final_table)):
-    npt_self_seq=final_table.at[i,"Seq."]
-    npt_qty=final_table.at[i,"Accum Qty"]
-    gerp_qty=final_table.at[j,"Qty Per Assembly"]
-    #qty match
-    if npt_qty!=gerp_qty:
-        final_table.at[i,"Qty Match"]=False
-    #qty mismatch
-    else:
-        final_table.at[i,"Qty Match"]=True
-
-######################## Substitute GERP Total Qty ########################
-for i in range(len(final_table)):
-    npt_self_seq=final_table.at[i,"Seq."]
-    npt_qty=final_table.at[i,"Accum Qty"]
-    for j in range(len(final_table)):
-        npt_compare_seq=final_table.at[j,"Seq."]
-        if i!=j and npt_self_seq==npt_compare_seq:
-            gerp_total_qty=final_table.at[i,"Qty Per Assembly"]+final_table.at[j,"Qty Per Assembly"]
-            #qty match
-            if npt_qty!=gerp_total_qty:
-                final_table.at[i,"Qty Match"]=False
-            #qty mismatch
-            else:
-                final_table.at[i,"Qty Match"]=True
-
-
-
-################################################ Price Match ################################################
-######################## price match - general ########################
-final_table["price match"]=(final_table['Net Material']-final_table['Unit Price (USD)'])*final_table['Qty Per Assembly']
-cast_to_type = {'price match': float} # round error -> datatype
-final_table = final_table.astype(cast_to_type) # round error -> datatype
-final_table["price match"]=final_table["price match"].round(8)
-
-
-######################## Npt T, Child NPT G,D,S ########################
-# Upper Balance, Lower Balance 포함
-for i in range(len(final_table)):
-    npt_uit=final_table.at[i,"UIT"]
-    npt_part=final_table.at[i,"Part No"]
-    npt_match=final_table.at[i,"match"]
-    npt_part=final_table.at[i,"Part No"]
-    npt_gerp_part=final_table.at[i,"Child Item"]
-    npt_child_uit=final_table.at[i,"Item Type"]
-    npt_cost=final_table.at[i,"Net Material"]
-    npt_qty=final_table.at[i,"Qty Per Assembly"]
-    child_seq=int(final_table.at[i,"Seq."])+1
-    child_index=final_table[final_table['Seq.']==child_seq].index
-
-    # T & Substitute
-    if npt_uit=="T" and npt_part!=npt_gerp_part and npt_gerp_part!='':
-        child_seq=int(final_table.at[i,"Seq."])+1
-        child_row=final_table.index[final_table['Seq.']==child_seq].tolist()
-        child_index=child_row[0]
-        child_part=final_table.at[child_index,"Parent Part"]
-        child_cost=final_table.at[child_index,"Material Cost (LOC)"]
-        child_g_cost=final_table.at[child_index,"Unit Price (USD)"]
-        child_gd_cost=final_table.at[child_index,"Net Material"]
-        child_g_qty=final_table.at[child_index,"Qty Per Assembly"]
-        child_uit=final_table.at[child_index,"UIT"]
-
-        if child_uit=="G" and child_part==npt_part:
-            final_table.at[i,"price match"]=round((npt_cost-child_cost)*npt_qty,8)
-            # final_table.at[child_index,"price match"]=round((child_gd_cost-child_g_cost)*child_g_qty*final_table.at[j-1,"Qty Per Assembly"],8)
-            final_table.at[child_index,"price match"]=0.0
-            print(i)
-        elif child_uit=="D" and child_part==npt_part:
-            final_table.at[i,"price match"]=round((npt_cost-child_cost)*npt_qty,8)
-        elif child_uit=="S" and child_part==npt_part:
-            final_table.at[i,"price match"]=round((npt_cost-child_cost)*npt_qty,8)
-
-
-
-
-################################################ Match Type ################################################
 ######################## Match Type : Substitute / True ########################
+############ Substitute
 for i in range(len(final_table)):
     final_match=str(final_table.at[i,"match"])
     npt_part=str(final_table.at[i,"Part No"])
@@ -1167,7 +1337,86 @@ for i in range(len(final_table)):
         if npt_part!=gerp_part:
             final_table.at[i,"match"]="Substitute"
 
+############################ Price Match #########################
+############## price match - general ##############
+final_table["price match"]=(final_table['Net Material']-final_table['Unit Price (USD)'])*final_table['Qty Per Assembly']
+cast_to_type = {'price match': float} # round error -> datatype
+final_table = final_table.astype(cast_to_type) # round error -> datatype
+final_table["price match"]=final_table["price match"].round(8)
+
+
+############## 1- Coil, Steel(STS) / Sheet,Steel(GI) ##############
+#Coil, Steel(STS) / Sheet,Steel(GI) (자신의 부모가 Cover, Rear)
+for i in range(len(final_table)):
+    parent_part=final_table.at[i,"Parent Part"] #gerp
+    part_des=final_table.at[i,"Desc."] #npt
+    if part_des=='Coil,Steel(STS)':
+        for j in range(len(final_table)):
+            another_child=final_table.at[j,"Child Item"]
+            another_qty=final_table.at[j,"Qty Per Assembly"]
+            if another_child==parent_part: # 한개 짜리 문제 될수도 있음
+                string_condition=final_table.at[i,"Qty Per Assembly"]
+                if type(string_condition)!=str:
+                    final_table.at[i,"price match"]=float(final_table.at[i,"Net Material"]-final_table.at[i,"Unit Price (USD)"])*float(final_table.at[i,"Qty Per Assembly"])*float(another_qty)
+    elif part_des=='Sheet,Steel(GI)':
+        for j in range(len(final_table)):
+            another_child=final_table.at[j,"Child Item"]
+            another_des=final_table.at[j,"Desc."]
+            another_qty=final_table.at[j,"Qty Per Assembly"]
+            if another_child==parent_part and another_des=='Cover,Rear': # add one more condition
+                string_condition=final_table.at[i,"Qty Per Assembly"]
+                if type(string_condition)!=str:
+                    final_table.at[i,"price match"]=float(final_table.at[i,"Net Material"]-final_table.at[i,"Unit Price (USD)"])*float(final_table.at[i,"Qty Per Assembly"])*float(another_qty)
+    else:
+        pass
+
+
+############## 2- Tub,Drum(Front), Tub,Drum(Center), Tub,Drum(Rear) ##############
+## 자신의 child 다른 parent 매칭 but substitute part
+for i in range(len(final_table)):
+    child_part=str(final_table.at[i,"Child Item"])[:-2]  #gerp
+    part_des=final_table.at[i,"Desc."] #npt
+    price_match=final_table.at[i,"match"]
+    if part_des.__contains__('Tub,Drum(') and price_match=='Substitute':
+        for j in range(len(final_table)):
+            another_parent=final_table.at[j,"Parent Part"][:-2]#npt
+            another_qty=final_table.at[j,"Qty Per Assembly"]
+            another_price=final_table.at[j,"Material Cost (LOC)"]
+            another_des=final_table.at[j,"Desc."]
+            another_match=final_table.at[j,"match"]
+            if another_des=='Coil,Steel(STS)' and another_parent==child_part and another_match!=("Substitute"):
+                final_table.at[i,"price match"]=(final_table.at[i,"Net Material"]-another_price)*final_table.at[i,"Qty Per Assembly"]
+    elif part_des.__contains__('Cover,Rear') and price_match=='Substitute':
+        for j in range(len(final_table)):
+            another_parent=final_table.at[j,"Parent Part"][:-2]
+            another_qty=final_table.at[j,"Qty Per Assembly"]
+            another_price=final_table.at[j,"Material Cost (LOC)"]
+            another_des=final_table.at[j,"Desc."]
+            another_match=final_table.at[j,"match"]
+            if another_des=='Sheet,Steel(GI)' and another_parent==child_part and another_match.__contains__("Substitute")==False:
+                final_table.at[i,"price match"]=(final_table.at[i,"Net Material"]-another_price)*final_table.at[i,"Qty Per Assembly"]
+    else:
+        pass
+
+############## 3- Tub,Drum(Front), Tub,Drum(Center), Tub,Drum(Rear) ##############
+## 자신의 child 다른 parent 매칭 but substitute part
+for i in range(len(final_table)):
+    gerp1_child=final_table.at[i,"Child Item"]
+    gerp1_des=final_table.at[i,"Description"]
+    gerp1_match=final_table.at[i,"match"]
+    if gerp1_des.__contains__('Cover,Rear') and gerp1_match=='Substitute':
+        for j in range(len(final_table)):
+            gerp2_parent=final_table.at[j,"Parent Item"]
+            gerp2_des=final_table.at[j,"Description"]
+            gerp1_cal=final_table.at[j,"Material Cost (LOC)"]
+            if gerp2_des=='Sheet,Steel(GI)' and gerp2_parent==gerp1_child:
+                final_table.at[i,"price match"]=(0-gerp1_cal)*final_table.at[i,"Qty Per Assembly"]
+                final_table.at[j,"price match"]=np.nan
+    else:
+        pass
+
 ######################## Match Type : Price Change / True / Substitute ########################
+############ True, Price Change
 for i in range(len(final_table)):
     price_match=round(final_table.at[i,'price match'],2)
     final_match=final_table.at[i,"match"]
@@ -1213,7 +1462,6 @@ for i in range(1,len(final_table)): #0은 -1과 비교할 수 없음으로
         final_table.at[i,"Parent Part"]=np.nan
         final_table.at[i,"Part No"]=np.nan
         final_table.at[i,"Desc."]=np.nan
-        final_table.at[i,"UIT"]=np.nan
         final_table.at[i,"UOM"]=np.nan
         final_table.at[i,"Unit Qty"]=np.nan
         final_table.at[i,"Accum Qty"]=np.nan
@@ -1225,4 +1473,4 @@ for i in range(1,len(final_table)): #0은 -1과 비교할 수 없음으로
         final_table.at[i,"Material Cost (LOC)"]=np.nan
 
 
-final_table.to_excel('C:/Users/RnD Workstation/Documents/NPTGERP/0512/TL/final_table.xlsx')
+final_table.to_excel('C:/Users/RnD Workstation/Documents/NPTGERP/0512/DR/final_table.xlsx')

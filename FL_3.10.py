@@ -3,7 +3,7 @@ import numpy as np
 from collections import Counter
 
 ###########################GERP###############################
-gerp=pd.read_excel('C:/Users/RnD Workstation/Documents/NPTGERP/0414/FL/gerp.xlsx')
+gerp=pd.read_excel('C:/Users/RnD Workstation/Documents/NPTGERP/0428/FL/gerp.xlsx')
 # #파일에 따라 추가하기
 # gerp=gerp[gerp['Model'].str.contains('F3')] #total 행 제거
 # gerp.reset_index(drop=True, inplace=True)
@@ -107,10 +107,10 @@ for i in range(len(empty_list)):
         else:
             pass
 
-gerp.to_excel('C:/Users/RnD Workstation/Documents/NPTGERP/0414/FL/gerpresult.xlsx')
+gerp.to_excel('C:/Users/RnD Workstation/Documents/NPTGERP/0428/FL/gerpresult.xlsx')
 
 ###########################NPT###############################
-npt=pd.read_excel('C:/Users/RnD Workstation/Documents/NPTGERP/0414/FL/npt.xlsx')
+npt=pd.read_excel('C:/Users/RnD Workstation/Documents/NPTGERP/0428/FL/npt.xlsx')
 
 # #파일에 따라 추가하기 (Test-1 O, Test-3 X)
 npt=npt.drop([0],axis=0) #total 행 제거
@@ -319,7 +319,7 @@ for i in range(len(empty_list)):
 npt=npt[npt['Supply Type']=='Assembly Pull']
 npt.reset_index(inplace=True,drop=True)
 
-npt.to_excel('C:/Users/RnD Workstation/Documents/NPTGERP/0414/FL/nptresult.xlsx')
+npt.to_excel('C:/Users/RnD Workstation/Documents/NPTGERP/0428/FL/nptresult.xlsx')
 
 ####################### compare npt and gerp #######################
 #Match with GERP parent
@@ -337,7 +337,8 @@ match_list=pd.DataFrame()
 unique_gerp=gerp
 model_name=gerp.at[0,"Parent Item"][:1]
 
-####################################### priority - Screw, tapping #######################################
+####################################### priority #######################################
+gerp_data=pd.DataFrame()
 for i in range(len(npt)):
     npt_part=npt.at[i,"Part No"]
     npt_parent=npt.at[i,"Parent Part"]
@@ -345,79 +346,33 @@ for i in range(len(npt)):
     npt_price=npt.at[i,"Material Cost (LOC)"]
     npt_qty=npt.at[i,"Unit Qty"]
     match_number=npt.at[i,"Seq."]
-    if npt_des=="Screw,Tapping": #Screw,tapping 
-        if model_name=='T' or 'F': #Screw,tapping 
-            for j in range(len(unique_gerp)): #duplicate 제외
-                gerp_part=unique_gerp.at[j,"Child Item"]
-                gerp_des=unique_gerp.at[j,"Description"]
-                gerp_price=unique_gerp.at[j,"QPA*Material Cost"]
-                gerp_qty=unique_gerp.at[j,"Qty Per Assembly"]
-                if gerp_des==npt_des and gerp_part==npt_part and gerp_qty==npt_qty: #완전 일치문 (parent는 일치하지 않는 경우가 있어 제외)
-                    if gerp_price==npt_price:
-                        gerp_data=unique_gerp.at[j,"Seq"]
-                        match_list.at[match_number,"gerp_true"]=gerp_data
-                    else:
-                        gerp_data=unique_gerp.at[j,"Seq"]
-                        match_list.at[match_number,"gerp_price"]=gerp_data
-                else:
-                    continue
-            ### HOW TO DROP 
-            used_index=unique_gerp[unique_gerp["Seq"]==gerp_data].index
-            unique_gerp=unique_gerp.drop(used_index,axis=0)
-            unique_gerp.reset_index(drop=True, inplace=True)
+    for j in range(len(unique_gerp)): #duplicate 제외 
+        gerp_part=unique_gerp.at[j,"Child Item"]
+        gerp_des=unique_gerp.at[j,"Description"]
+        gerp_price=unique_gerp.at[j,"QPA*Material Cost"]
+        gerp_qty=unique_gerp.at[j,"Qty Per Assembly"]
+        if npt_des=="Screw,Tapping" and gerp_des==npt_des and gerp_part==npt_part and gerp_qty==npt_qty: #완전 일치문 (parent는 일치하지 않는 경우가 있어 제외)
+            gerp_data=unique_gerp.at[j,"Seq"]
+            match_list.at[match_number,"gerp_true"]=gerp_data
 
-        elif model_name=='R': #Screw,tapping 
-            for j in range(len(unique_gerp)): #duplicate 제외
-                gerp_parent=unique_gerp.at[j,"Parent Item"]
-                gerp_part=unique_gerp.at[j,"Child Item"]
-                gerp_des=unique_gerp.at[j,"Description"]
-                gerp_price=unique_gerp.at[j,"QPA*Material Cost"]
-                gerp_qty=unique_gerp.at[j,"Qty Per Assembly"]
-                if gerp_des==npt_des and gerp_part==npt_part and gerp_qty==npt_qty and gerp_parent==npt_parent: #완전 일치문 (parent는 일치해야 함 드라이어)
-                    if gerp_price==npt_price:
-                        gerp_data=unique_gerp.at[j,"Seq"]
-                        match_list.at[match_number,"gerp_true"]=gerp_data
-                    else:
-                        gerp_data=unique_gerp.at[j,"Seq"]
-                        match_list.at[match_number,"gerp_price"]=gerp_data
-                else:
-                    continue
-            ### HOW TO DROP 
-            used_index=unique_gerp[unique_gerp["Seq"]==gerp_data].index
-            unique_gerp=unique_gerp.drop(used_index,axis=0)
-            unique_gerp.reset_index(drop=True, inplace=True)
-        else:
-            print("Unidentified Model")
-    
-####################################### priority - Screw, customized #######################################
-#Screw,Customized -> 부모, description, Qty 만보고 먼저 매치
-for i in range(len(npt)):
-    npt_part=npt.at[i,"Part No"]
-    npt_des=npt.at[i,"Desc."]
-    npt_price=npt.at[i,"Material Cost (LOC)"]
-    npt_qty=npt.at[i,"Unit Qty"]
-    match_number=npt.at[i,"Seq."]
-    if npt_des=="Screw,Customized":
-        for j in range(len(unique_gerp)): #duplicate 제외
-            gerp_part=unique_gerp.at[j,"Child Item"]
-            gerp_des=unique_gerp.at[j,"Description"]
-            gerp_price=unique_gerp.at[j,"QPA*Material Cost"]
-            gerp_qty=unique_gerp.at[j,"Qty Per Assembly"]
-            if gerp_des==npt_des and gerp_part==npt_part and gerp_qty==npt_qty: #완전 일치문 (parent는 일치하지 않는 경우가 있어 제외)
-                if gerp_price==npt_price:
-                    gerp_data=unique_gerp.at[j,"Seq"]
-                    match_list.at[match_number,"gerp_true"]=gerp_data
-                else:
-                    gerp_data=unique_gerp.at[j,"Seq"]
-                    match_list.at[match_number,"gerp_price"]=gerp_data
-            else:
-                continue
+
+        elif npt_des=="Screw,Customized" and gerp_des==npt_des and gerp_part==npt_part and gerp_qty==npt_qty: #완전 일치문 (parent는 일치하지 않는 경우가 있어 제외)
+            gerp_data=unique_gerp.at[j,"Seq"]
+            match_list.at[match_number,"gerp_true"]=gerp_data
+ 
+
+        elif npt_des.__contains__("Sheet,Steel") and gerp_des==npt_des and gerp_des.__contains__("Sheet,Steel"):
+            gerp_data=unique_gerp.at[j,"Seq"]
+            match_list.at[match_number,"gerp_true"]=gerp_data
+
+
         ### HOW TO DROP 
         used_index=unique_gerp[unique_gerp["Seq"]==gerp_data].index
         unique_gerp=unique_gerp.drop(used_index,axis=0)
         unique_gerp.reset_index(drop=True, inplace=True)
-    else:
-        pass
+
+       
+    
 
 
 ####################################### priority - Upper Hanger & Door Glass#######################################
@@ -670,7 +625,7 @@ for i in range(len(npt)):
     unique_gerp=unique_gerp.drop(used_index,axis=0)
     unique_gerp.reset_index(drop=True, inplace=True) 
 
-####################################### Arrange - Matching except parent #######################################
+# ####################################### Arrange - Matching except parent #######################################
 ### 매칭 안된 데이터 - 남는 데이터 가지고 다시 비교
 #price, parent -> parent는 드롭 -> unique_add
 match_list=match_list.reset_index()
@@ -863,7 +818,7 @@ else:
 
 
 ############### remain gerp 매칭 안되고 missing 된것
-remain_gerp.to_excel('C:/Users/RnD Workstation/Documents/NPTGERP/0414/FL/remaingerp.xlsx')
+remain_gerp.to_excel('C:/Users/RnD Workstation/Documents/NPTGERP/0428/FL/remaingerp.xlsx')
 
 ####################################### match_list "match_digit" #######################################
 sub_matchlist=match_list
@@ -899,7 +854,7 @@ for i in range(len(match_list)):
 # match_list=match_list.drop(exclude_list[0].values.tolist(),axis=1)
 match_list=match_list.rename(columns={"index": "Seq."})
 
-match_list.to_excel('C:/Users/RnD Workstation/Documents/NPTGERP/0414/FL/matchlist.xlsx')
+match_list.to_excel('C:/Users/RnD Workstation/Documents/NPTGERP/0428/FL/matchlist.xlsx')
 
 ######################################## submatchlist matching with match_digit
 sub_matchlist=pd.DataFrame()
@@ -917,6 +872,18 @@ for i in range(len(match_list)):
     
     ############### true ###############
     elif match_digit==100000:
+        sub_matchlist.at[change_count,"Seq."]=match_list.at[i,'Seq.']
+        sub_matchlist.at[change_count,"gerpSeq."]=match_list.at[i,'gerp_price']
+        sub_matchlist.at[change_count,"gerp_price"]=match_list.at[i,'gerp_price']
+        change_count=change_count+1
+
+    ############### true, price ###############
+    elif match_digit==100100:
+        sub_matchlist.at[change_count,"Seq."]=match_list.at[i,'Seq.']
+        sub_matchlist.at[change_count,"gerpSeq."]=match_list.at[i,'gerp_true']
+        sub_matchlist.at[change_count,"gerp_true"]=match_list.at[i,'gerp_true']
+        change_count=change_count+1
+
         sub_matchlist.at[change_count,"Seq."]=match_list.at[i,'Seq.']
         sub_matchlist.at[change_count,"gerpSeq."]=match_list.at[i,'gerp_price']
         sub_matchlist.at[change_count,"gerp_price"]=match_list.at[i,'gerp_price']
@@ -1133,7 +1100,7 @@ for i in range(len(match_list)):
 match_join = pd.merge(npt['Seq.'], sub_matchlist, on ='Seq.', how ='left')    
 
 #save file
-match_join.to_excel('C:/Users/RnD Workstation/Documents/NPTGERP/0414/FL/matchjoin.xlsx')
+match_join.to_excel('C:/Users/RnD Workstation/Documents/NPTGERP/0428/FL/matchjoin.xlsx')
 
 ######################################### final table
 #final table
@@ -1208,7 +1175,7 @@ for i in range(len(match_join)):
 
 
 #######################Add MTL Column####################
-mtl=pd.read_excel('C:/Users/RnD Workstation/Documents/NPTGERP/0414/FL/gerp.xlsx',sheet_name='MTL Cost')
+mtl=pd.read_excel('C:/Users/RnD Workstation/Documents/NPTGERP/0428/FL/gerp.xlsx',sheet_name='MTL Cost')
 mtl=mtl[['Item No','Item Cost','Material Overhead Cost','Creation Period']]
 #mtl 부분 데이터 정리
 mtl=mtl.rename(columns={'Item No':'Child Item','Creation Period':'PAC Creation','Item Cost':'MTL Cost','Material Overhead Cost':'MTL OH'})
@@ -1434,4 +1401,4 @@ for i in range(1,len(final_table)): #0은 -1과 비교할 수 없음으로
         final_table.at[i,"Material Cost (LOC)"]=np.nan
 
 
-final_table.to_excel('C:/Users/RnD Workstation/Documents/NPTGERP/0414/FL/final_table.xlsx')
+final_table.to_excel('C:/Users/RnD Workstation/Documents/NPTGERP/0428/FL/final_table.xlsx')
