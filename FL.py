@@ -767,7 +767,7 @@ else:
 ### data reset for next matching
 match_list.reset_index(drop=True, inplace=True)
 
-match_list.to_excel('33.xlsx')
+
 
 ############################ 2) NPT Sequence -> index #########################
 ### 매칭 안된 데이터 - 남는 데이터 가지고 다시 비교
