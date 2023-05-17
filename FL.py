@@ -3,7 +3,7 @@ import numpy as np
 from collections import Counter
 
 ###########################GERP###############################
-gerp=pd.read_excel('C:/Users/RnD Workstation/Documents/NPTGERP/0512/FL/gerp.xlsx')
+gerp=pd.read_excel('C:/Users/RnD Workstation/Documents/NPTGERP/0519/FL/gerp.xlsx')
 # #파일에 따라 추가하기
 # gerp=gerp[gerp['Model'].str.contains('F3')] #total 행 제거
 # gerp.reset_index(drop=True, inplace=True)
@@ -107,10 +107,10 @@ for i in range(len(empty_list)):
         else:
             pass
 
-gerp.to_excel('C:/Users/RnD Workstation/Documents/NPTGERP/0512/FL/gerpresult.xlsx')
+gerp.to_excel('C:/Users/RnD Workstation/Documents/NPTGERP/0519/FL/gerpresult.xlsx')
 
 ###########################NPT###############################
-npt=pd.read_excel('C:/Users/RnD Workstation/Documents/NPTGERP/0512/FL/npt.xlsx')
+npt=pd.read_excel('C:/Users/RnD Workstation/Documents/NPTGERP/0519/FL/npt.xlsx')
 
 # #파일에 따라 추가하기 (Test-1 O, Test-3 X)
 npt=npt.drop([0],axis=0) #total 행 제거
@@ -319,7 +319,7 @@ for i in range(len(empty_list)):
 npt=npt[npt['Supply Type']=='Assembly Pull']
 npt.reset_index(inplace=True,drop=True)
 
-npt.to_excel('C:/Users/RnD Workstation/Documents/NPTGERP/0512/FL/nptresult.xlsx')
+npt.to_excel('C:/Users/RnD Workstation/Documents/NPTGERP/0519/FL/nptresult.xlsx')
 
 ####################### compare npt and gerp #######################
 #Match with GERP parent
@@ -869,7 +869,7 @@ else:
 
 
 ############### remain gerp 매칭 안되고 missing 된것
-remain_gerp.to_excel('C:/Users/RnD Workstation/Documents/NPTGERP/0512/FL/remaingerp.xlsx')
+remain_gerp.to_excel('C:/Users/RnD Workstation/Documents/NPTGERP/0519/FL/remaingerp.xlsx')
 
 ####################################### match_list "match_digit" #######################################
 sub_matchlist=match_list
@@ -905,7 +905,7 @@ for i in range(len(match_list)):
 # match_list=match_list.drop(exclude_list[0].values.tolist(),axis=1)
 match_list=match_list.rename(columns={"index": "Seq."})
 
-match_list.to_excel('C:/Users/RnD Workstation/Documents/NPTGERP/0512/FL/matchlist.xlsx')
+match_list.to_excel('C:/Users/RnD Workstation/Documents/NPTGERP/0519/FL/matchlist.xlsx')
 
 ######################################## submatchlist matching with match_digit
 sub_matchlist=pd.DataFrame()
@@ -1154,7 +1154,7 @@ for i in range(len(match_list)):
 match_join = pd.merge(npt['Seq.'], sub_matchlist, on ='Seq.', how ='left')    
 
 #save file
-match_join.to_excel('C:/Users/RnD Workstation/Documents/NPTGERP/0512/FL/matchjoin.xlsx')
+match_join.to_excel('C:/Users/RnD Workstation/Documents/NPTGERP/0519/FL/matchjoin.xlsx')
 
 ######################################### final table
 #final table
@@ -1229,7 +1229,7 @@ for i in range(len(match_join)):
 
 
 #######################Add MTL Column####################
-mtl=pd.read_excel('C:/Users/RnD Workstation/Documents/NPTGERP/0512/FL/gerp.xlsx',sheet_name='MTL Cost')
+mtl=pd.read_excel('C:/Users/RnD Workstation/Documents/NPTGERP/0519/FL/gerp.xlsx',sheet_name='MTL Cost')
 mtl=mtl[['Item No','Item Cost','Material Overhead Cost','Creation Period']]
 #mtl 부분 데이터 정리
 mtl=mtl.rename(columns={'Item No':'Child Item','Creation Period':'PAC Creation','Item Cost':'MTL Cost','Material Overhead Cost':'MTL OH'})
@@ -1294,38 +1294,38 @@ cast_to_type = {'price match': float} # round error -> datatype
 final_table = final_table.astype(cast_to_type) # round error -> datatype
 final_table["price match"]=final_table["price match"].round(8)
 
-# ######################## Npt T, Child NPT G,D,S ########################
-# for i in range(len(final_table)):
-#     npt_uit=final_table.at[i,"UIT"]
-#     npt_part=final_table.at[i,"Part No"]
-#     npt_match=final_table.at[i,"match"]
-#     npt_part=final_table.at[i,"Part No"]
-#     npt_gerp_part=final_table.at[i,"Child Item"]
-#     npt_child_uit=final_table.at[i,"Item Type"]
-#     npt_cost=final_table.at[i,"Net Material"]
-#     npt_qty=final_table.at[i,"Qty Per Assembly"]
-#     child_seq=int(final_table.at[i,"Seq."])+1
-#     child_index=final_table[final_table['Seq.']==child_seq].index
+######################## Npt T, Child NPT G,D,S ########################
+for i in range(len(final_table)):
+    npt_uit=final_table.at[i,"UIT"]
+    npt_part=final_table.at[i,"Part No"]
+    npt_match=final_table.at[i,"match"]
+    npt_part=final_table.at[i,"Part No"]
+    npt_gerp_part=final_table.at[i,"Child Item"]
+    npt_child_uit=final_table.at[i,"Item Type"]
+    npt_cost=final_table.at[i,"Net Material"]
+    npt_qty=final_table.at[i,"Qty Per Assembly"]
+    child_seq=int(final_table.at[i,"Seq."])+1
+    child_index=final_table[final_table['Seq.']==child_seq].index
 
-#     # T & Substitute
-#     if npt_uit=="T" and npt_gerp_part!='' and npt_part!=npt_gerp_part:
-#         child_seq=int(final_table.at[i,"Seq."])+1
-#         child_row=final_table.index[final_table['Seq.']==child_seq].tolist()
-#         child_index=child_row[0]
-#         child_part=final_table.at[child_index,"Parent Part"]
-#         child_cost=final_table.at[child_index,"Material Cost (LOC)"]
-#         child_g_cost=final_table.at[child_index,"Unit Price (USD)"]
-#         child_gd_cost=final_table.at[child_index,"Net Material"]
-#         child_g_qty=final_table.at[child_index,"Qty Per Assembly"]
-#         child_uit=final_table.at[child_index,"UIT"]
+    # T & Substitute
+    if npt_uit=="T" and npt_gerp_part!='' and npt_part!=npt_gerp_part:
+        child_seq=int(final_table.at[i,"Seq."])+1
+        child_row=final_table.index[final_table['Seq.']==child_seq].tolist()
+        child_index=child_row[0]
+        child_part=final_table.at[child_index,"Parent Part"]
+        child_cost=final_table.at[child_index,"Material Cost (LOC)"]
+        child_g_cost=final_table.at[child_index,"Unit Price (USD)"]
+        child_gd_cost=final_table.at[child_index,"Net Material"]
+        child_g_qty=final_table.at[child_index,"Qty Per Assembly"]
+        child_uit=final_table.at[child_index,"UIT"]
 
-#         if child_uit=="G" and child_part==npt_part:
-#             final_table.at[i,"price match"]=round((npt_cost-child_cost)*npt_qty,8)
-#             final_table.at[child_index,"price match"]=round((child_gd_cost-child_g_cost)*child_g_qty*final_table.at[j-1,"Qty Per Assembly"],8)
-#         elif child_uit=="D" and child_part==npt_part:
-#             final_table.at[i,"price match"]=round((npt_cost-child_cost)*npt_qty,8)
-#         elif child_uit=="S" and child_part==npt_part:
-#             final_table.at[i,"price match"]=round((npt_cost-child_cost)*npt_qty,8)
+        if child_uit=="G" and child_part==npt_part:
+            final_table.at[i,"price match"]=round((npt_cost-child_cost)*npt_qty,8)
+            final_table.at[child_index,"price match"]=round((child_gd_cost-child_g_cost)*child_g_qty*final_table.at[j-1,"Qty Per Assembly"],8)
+        elif child_uit=="D" and child_part==npt_part:
+            final_table.at[i,"price match"]=round((npt_cost-child_cost)*npt_qty,8)
+        elif child_uit=="S" and child_part==npt_part:
+            final_table.at[i,"price match"]=round((npt_cost-child_cost)*npt_qty,8)
 
 
 
@@ -1455,4 +1455,4 @@ for i in range(1,len(final_table)): #0은 -1과 비교할 수 없음으로
         final_table.at[i,"Material Cost (LOC)"]=np.nan
 
 
-final_table.to_excel('C:/Users/RnD Workstation/Documents/NPTGERP/0512/FL/final_table.xlsx')
+final_table.to_excel('C:/Users/RnD Workstation/Documents/NPTGERP/0519/FL/final_table.xlsx')
