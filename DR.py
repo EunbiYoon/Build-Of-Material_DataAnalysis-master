@@ -399,7 +399,7 @@ for i in range(len(npt)):
             gerp_des=unique_gerp.at[j,"Description"]
             gerp_price=unique_gerp.at[j,"QPA*Material Cost"]
             gerp_qty=unique_gerp.at[j,"Qty Per Assembly"]
-            if gerp_des==npt_des and gerp_part==npt_part and gerp_parent==npt_parent and npt_qty==gerp_qty: #완전 일치문 (parent는 일치하지 않는 경우가 있어 제외)
+            if gerp_des==npt_des and gerp_part==npt_part and npt_qty==gerp_qty: #완전 일치문 (parent는 일치하지 않는 경우가 있어 제외)
                 gerp_data=unique_gerp.at[j,"Seq"]
                 match_list.at[match_number,"gerp_exc"]=gerp_data
         ### HOW TO DROP 
