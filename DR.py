@@ -368,6 +368,7 @@ for i in range(len(npt)):
 
     elif npt_des=="PCB Assembly,Complex":
         count=0
+        used_list=pd.DataFrame()
         for j in range(len(unique_gerp)): #duplicate 제외
             gerp_parent=unique_gerp.at[j,"Parent Item"]
             gerp_part=unique_gerp.at[j,"Child Item"]
@@ -377,18 +378,24 @@ for i in range(len(npt)):
             if gerp_des==npt_des and count==0:
                 gerp_data=unique_gerp.at[j,"Seq"]
                 match_list.at[match_number,"gerp_exc"]=gerp_data
+                used_list.at[count,0]=gerp_data
                 count=count+1
             elif gerp_des==npt_des and count==1:
                 gerp_data=unique_gerp.at[j,"Seq"]
-                match_list.at[match_number,"gerp_sub"]=gerp_data
+                match_list.at[match_number,"gerp_exc"]=gerp_data
+                used_list.at[count,0]=gerp_data
                 count=count+1
+                used_list.at[count,0]=gerp_data
             elif gerp_des==npt_des and count==2:
                 gerp_data=unique_gerp.at[j,"Seq"]
-                match_list.at[match_number,"gerp_re"]=gerp_data  
-                count=count+1           
+                match_list.at[match_number,"gerp_exc"]=gerp_data
+                used_list.at[count,0]=gerp_data 
+                count=count+1  
         ### HOW TO DROP 
+        print(used_list)
         used_index=unique_gerp[unique_gerp["Seq"]==gerp_data].index
-        unique_gerp=unique_gerp.drop(used_index,axis=0)
+        
+        unique_gerp=unique_gerp.drop(used_list[0],axis=0)
         unique_gerp.reset_index(drop=True, inplace=True)
 
     #Screw,Taptite 
