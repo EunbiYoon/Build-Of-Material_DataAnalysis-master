@@ -377,25 +377,22 @@ for i in range(len(npt)):
             gerp_qty=unique_gerp.at[j,"Qty Per Assembly"]
             if gerp_des==npt_des and count==0:
                 gerp_data=unique_gerp.at[j,"Seq"]
-                match_list.at[match_number,"gerp_exc"]=gerp_data
-                used_list.at[count,0]=gerp_data
+                match_list.at[match_number,"gerp_re"]=gerp_data
+                used_list.at[count,0]=j
                 count=count+1
             elif gerp_des==npt_des and count==1:
                 gerp_data=unique_gerp.at[j,"Seq"]
                 match_list.at[match_number,"gerp_exc"]=gerp_data
-                used_list.at[count,0]=gerp_data
+                used_list.at[count,0]=j
                 count=count+1
-                used_list.at[count,0]=gerp_data
             elif gerp_des==npt_des and count==2:
                 gerp_data=unique_gerp.at[j,"Seq"]
-                match_list.at[match_number,"gerp_exc"]=gerp_data
-                used_list.at[count,0]=gerp_data 
+                match_list.at[match_number,"gerp_sub"]=gerp_data
+                used_list.at[count,0]=j 
                 count=count+1  
-        ### HOW TO DROP 
-        print(used_list)
-        used_index=unique_gerp[unique_gerp["Seq"]==gerp_data].index
-        
-        unique_gerp=unique_gerp.drop(used_list[0],axis=0)
+        print(match_list)
+        used_list=used_list[0].to_list()
+        unique_gerp=unique_gerp.drop(used_list,axis=0)
         unique_gerp.reset_index(drop=True, inplace=True)
 
     #Screw,Taptite 
